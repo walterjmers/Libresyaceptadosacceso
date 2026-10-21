@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="manifest" href="manifest.json">
+  <title>Control de Acceso - Arkhé en escena</title>
+
+  <style>
+
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 10px;
+      background: #1a1a1a;
+      color: white;
+      margin: 0;
+    }
+
+    h2 {
+      margin-top: 20px;
+      margin-bottom: 5px;
+    }
+
+    h3 {
+      margin-top: 5px;
+      font-weight: normal;
+      color: #cccccc;
+    }
+
+    #reader {
+      width: 100%;
+      max-width: 400px;
+      margin: 15px auto;
+      background: white;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    #resultado {
+      margin: 20px auto;
+      padding: 20px;
+      border-radius: 10px;
+      font-size: 22px;
+      font-weight: bold;
+      min-height: 100px;
+      max-width: 400px;
+
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+
+      box-sizing: border-box;
+    }
+
+    .valido {
+      background: #2e7d32;
+      color: white;
+    }
+
+    .usado {
+      background: #f9a825;
+      color: black;
+    }
+
+    .no-pagado {
+      background: #ef6c00;
+      color: white;
+    }
+
+    .no-encontrado {
+      background: #c62828;
+      color: white;
+    }
+
+    .esperando {
+      background: #333333;
+      color: white;
+    }
+
+    .detalle {
+      font-size: 16px;
+      font-weight: normal;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+
+<body>
+<script>
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.getRegistrations().then(function(registrations) {
+      registrations.forEach(function(registration) {
+        registration.unregister();
+      });
+    });
+  }
+
+  if ("caches" in window) {
+    caches.keys().then(function(names) {
+      names.forEach(function(name) {
+        caches.delete(name);
+      });
+    });
+  }
+</script>
+  <h2>🎭 Control de Acceso</h2>
+  <h3>Arkhé en escena</h3>
+
+  <div id="reader"></div>
+
+  <div id="resultado" class="esperando">
+    📷 Apuntá la cámara al código QR
+  </div>
+
+
+  <!-- Librería QR -->
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+
+  <script>
+
+    // ============================================================
+    // URL DE GOOGLE APPS SCRIPT
+    // ============================================================
+
+    var APPS_SCRIPT_URL =
+  "https://script.google.com/macros/s/AKfycbxzXeBvao_J5XBM6WHc8RnyzfTEUeD44d7AJutNnVaQu3-yEYGQe7RXMFwDd4zfOzSV/exec";
+
+    // ============================================================
+    // VARIABLES
+    // ============================================================
+
+    var bloqueado = false;
+
+    var scanner = new Html5Qrcode("reader");
+
+
+    // ============================================================
+    // CUANDO DETECTA UN QR
+    // ============================================================
+
+    function onScanSuccess(decodedText) {
+
+      if (bloqueado) {
+        return;
+      }
+
+      bloqueado = true;
+
+      var div = document.getElementById("resultado");
+
+      div.className = "esperando";
+
+      div.innerHTML =
+        "🔎 Verificando entrada...";
+
+      consultarEntrada(decodedText);
+    }
+
+
+    // ============================================================
+    // CONSULTAR GOOGLE APPS SCRIPT MEDIANTE JSONP
+    // (única versión — tolera errores de carga transitorios
+    // y espera hasta 15s antes de declarar error real, porque
+    // Apps Script puede haber procesado todo del lado del
+    // servidor aunque el navegador tarde o falle en recibir
+    // la respuesta)
+    // ============================================================
+
+    function consultarEntrada(codigo) {
+
+      var callbackName =
+        "respuestaQR_" +
+        Date.now() +
+        "_" +
+        Math.floor(Math.random() * 100000);
+
+      var script = document.createElement("script");
+
+      var respondio = false;
+
+      var timeout;
+
+
+      // ----------------------------------------------------------
+      // CUANDO GOOGLE RESPONDE CORRECTAMENTE
+      // ----------------------------------------------------------
+
+      window[callbackName] = function(data) {
+
+        if (respondio) return;
+
+        respondio = true;
+
+        clearTimeout(timeout);
+
+        mostrarResultado(data);
+
+        setTimeout(function() {
+
+          if (script.parentNode) {
+            script.parentNode.removeChild(script);
+          }
+
+          try {
+            delete window[callbackName];
+          } catch (e) {}
+
+        }, 1000);
+      };
+
+
+      // ----------------------------------------------------------
+      // URL
+      // ----------------------------------------------------------
+
+      script.src =
+        APPS_SCRIPT_URL +
+        "?codigo=" +
+        encodeURIComponent(codigo) +
+        "&callback=" +
+        encodeURIComponent(callbackName) +
+        "&nocache=" +
+        Date.now();
+
+
+      // ----------------------------------------------------------
+      // SI EL NAVEGADOR REPORTA ERROR AL CARGAR EL SCRIPT
+      // NO MOSTRAR ERROR INMEDIATAMENTE: puede que Apps Script
+      // ya haya procesado la entrada del lado del servidor.
+      // Dejamos que el timeout de abajo decida.
+      // ----------------------------------------------------------
+
+      script.onerror = function() {
+
+        console.log(
+          "La respuesta del servidor tuvo un problema de carga. Esperando por si igual llega."
+        );
+
+      };
+
+
+      // ----------------------------------------------------------
+      // SOLO MOSTRAR ERROR SI PASAN 15 SEGUNDOS SIN RESPUESTA
+      // ----------------------------------------------------------
+
+      timeout = setTimeout(function() {
+
+        if (respondio) {
+          return;
+        }
+
+        respondio = true;
+
+        var div =
+          document.getElementById("resultado");
+
+        div.className =
+          "no-encontrado";
+
+        div.innerHTML =
+          "❌ NO SE RECIBIÓ RESPUESTA" +
+          "<br><br>" +
+          "<span class='detalle'>" +
+          "Verificá la conexión e intentá nuevamente." +
+          "</span>";
+
+        vibrarError();
+
+        bloqueado = false;
+
+
+        if (script.parentNode) {
+          script.parentNode.removeChild(script);
+        }
+
+        try {
+          delete window[callbackName];
+        } catch (e) {}
+
+      }, 15000);
+
+
+      // ----------------------------------------------------------
+      // EJECUTAR CONSULTA
+      // ----------------------------------------------------------
+
+      document.body.appendChild(script);
+    }
+
+
+    // ============================================================
+    // MOSTRAR RESULTADO
+    // ============================================================
+
+    function mostrarResultado(res) {
+
+      var div =
+        document.getElementById("resultado");
+
+
+      // ----------------------------------------------------------
+      // ENTRADA VÁLIDA
+      // ----------------------------------------------------------
+
+      if (res.estado === "valido") {
+
+        div.className = "valido";
+
+        div.innerHTML =
+          "✅ ENTRADA VÁLIDA" +
+          "<br><br>" +
+          res.nombre +
+          "<br>" +
+          "<span class='detalle'>" +
+          "Cantidad: " +
+          res.cantidad +
+          " persona(s)" +
+          "</span>";
+
+        vibrarOk();
+
+        reiniciar();
+
+        return;
+      }
+
+
+      // ----------------------------------------------------------
+      // ENTRADA YA UTILIZADA
+      // ----------------------------------------------------------
+
+      if (res.estado === "usado") {
+
+        div.className = "usado";
+
+        div.innerHTML =
+          "⚠️ ENTRADA YA UTILIZADA" +
+          "<br><br>" +
+          res.nombre +
+          "<br>" +
+          "<span class='detalle'>" +
+          "Cantidad: " +
+          res.cantidad +
+          " persona(s)" +
+          "</span>";
+
+        vibrarError();
+
+        reiniciar();
+
+        return;
+      }
+
+
+      // ----------------------------------------------------------
+      // ENTRADA NO PAGADA
+      // ----------------------------------------------------------
+
+      if (res.estado === "no_pagado") {
+
+        div.className = "no-pagado";
+
+        div.innerHTML =
+          "⚠️ ENTRADA NO PAGADA" +
+          "<br><br>" +
+          res.nombre +
+          "<br>" +
+          "<span class='detalle'>" +
+          "Verificar pago antes de permitir el ingreso." +
+          "</span>";
+
+        vibrarError();
+
+        reiniciar();
+
+        return;
+      }
+
+
+      // ----------------------------------------------------------
+      // CÓDIGO NO ENCONTRADO
+      // ----------------------------------------------------------
+
+      if (res.estado === "no_encontrado") {
+
+        div.className =
+          "no-encontrado";
+
+        div.innerHTML =
+          "❌ CÓDIGO NO ENCONTRADO";
+
+        vibrarError();
+
+        reiniciar();
+
+        return;
+      }
+
+
+      // ----------------------------------------------------------
+      // ERROR DEL APPS SCRIPT
+      // ----------------------------------------------------------
+
+      if (res.estado === "error") {
+
+        div.className =
+          "no-encontrado";
+
+        div.innerHTML =
+          "❌ ERROR DEL SISTEMA" +
+          "<br><br>" +
+          "<span class='detalle'>" +
+          (res.mensaje || "Error desconocido") +
+          "</span>";
+
+        vibrarError();
+
+        reiniciar();
+
+        return;
+      }
+
+
+      // ----------------------------------------------------------
+      // RESPUESTA DESCONOCIDA
+      // ----------------------------------------------------------
+
+      div.className =
+        "no-encontrado";
+
+      div.innerHTML =
+        "❌ RESPUESTA NO RECONOCIDA";
+
+      vibrarError();
+
+      reiniciar();
+    }
+
+
+    // ============================================================
+    // VIBRACIÓN
+    // ============================================================
+
+    function vibrarOk() {
+
+      if ("vibrate" in navigator) {
+        navigator.vibrate(250);
+      }
+    }
+
+
+    function vibrarError() {
+
+      if ("vibrate" in navigator) {
+        navigator.vibrate([
+          200,
+          100,
+          200
+        ]);
+      }
+    }
+
+
+    // ============================================================
+    // REINICIAR PARA LA SIGUIENTE ENTRADA
+    // ============================================================
+
+    function reiniciar() {
+
+      setTimeout(function() {
+
+        bloqueado = false;
+
+        var div =
+          document.getElementById("resultado");
+
+        div.className =
+          "esperando";
+
+        div.innerHTML =
+          "📷 Apuntá la cámara al código QR";
+
+      }, 5000);
+    }
+
+
+    // ============================================================
+    // INICIAR CÁMARA
+    // ============================================================
+
+    function iniciarCamara() {
+
+      scanner.start(
+
+        {
+          facingMode: "environment"
+        },
+
+        {
+          fps: 10,
+
+          qrbox: {
+            width: 250,
+            height: 250
+          },
+
+          aspectRatio: 1.0
+        },
+
+        onScanSuccess
+
+      )
+
+      .then(function() {
+
+        console.log(
+          "Cámara iniciada correctamente."
+        );
+
+      })
+
+      .catch(function(error) {
+
+        console.error(
+          "Error al iniciar cámara:",
+          error
+        );
+
+        var div =
+          document.getElementById("resultado");
+
+        div.className =
+          "no-encontrado";
+
+        div.innerHTML =
+          "❌ NO SE PUDO ABRIR LA CÁMARA" +
+          "<br><br>" +
+          "<span class='detalle'>" +
+          "Permití el acceso a la cámara desde el navegador." +
+          "<br><br>" +
+          error +
+          "</span>";
+      });
+    }
+
+
+    // ============================================================
+    // ARRANCAR AL CARGAR LA PÁGINA
+    // ============================================================
+
+    window.addEventListener(
+      "load",
+      function() {
+
+        iniciarCamara();
+
+      }
+    );
+
+  </script>
+
+</body>
+</html>
