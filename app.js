@@ -1,5 +1,5 @@
 'use strict';
-const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbwoQGcqyrHgXTc4f17Qp_HCpX0qz5ZV6fU5EW_VnIzuIKp4zG0VDJGSjYcZLBm7ay2avA/exec';
+const APPS_SCRIPT_URL='https://script.google.com/macros/s/AKfycbzdTKtqbegyacHcp3bvV6f9aWDtw94wpI9MVVF859bKoj_fqfFAs7sALP4UBVJdATzT8A/exec';
 const $=id=>document.getElementById(id);
 let busy=false,pending=null,scanner=null,starting=false,cameraRunning=false;
 function show(state,title,detail=''){$('result').dataset.state=state;$('heading').textContent=title;$('detail').textContent=detail;}
