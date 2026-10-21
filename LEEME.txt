@@ -1,0 +1,28 @@
+VERSIÓN 3 — SIN CLAVE DE OPERADOR
+
+Se quitó la clave de la app y del script. Se mantienen los controles de pago, entradas utilizadas y recuperación de respuestas.
+Quien tenga acceso al enlace del servicio podrá registrar códigos existentes sin identificarse.
+
+1. GOOGLE
+Abrí tu planilla > Extensiones > Apps Script.
+Reemplazá todo Código.gs por el Code.gs de este paquete. Guardá.
+Si no lo hiciste todavía, ejecutá prepararPlanilla para agregar las columnas.
+Implementar > Administrar implementaciones > lápiz > Nueva versión > Implementar.
+Conservá la implementación actual para mantener el enlace.
+Al abrir el enlace de Google sin parámetros debe aparecer github-3.
+La propiedad de operador anterior ya no se utiliza. Podés dejarla o borrarla.
+
+2. GITHUB
+Abrí tu repositorio > Add file > Upload files.
+Subí index.html, app.js y assets de este paquete en la raíz, reemplazando los anteriores.
+Tocá Commit changes y esperá a que se publique.
+Recargá la app. Abajo debe decir Versión GitHub 3. Si no cambia, abrila en incógnito.
+Tocá Activar cámara: ya no pide clave.
+
+Si cambiaste el enlace de implementación, reemplazá APPS_SCRIPT_URL en app.js por tu nueva dirección /exec antes de subirlo.
+Las entradas físicas requieren Pagado = Sí. Una entrada digital admite la Cantidad de adhesión; el grupo ingresa junto.
+Una validación correcta registra el ingreso. Usá entradas reservadas para ensayar.
+Si hay un corte, tocá Recuperar respuesta del mismo ingreso antes de continuar.
+
+El correo opcional necesita el activador instalable Al editar para enviarEntradaSiPago. El generador externo de QR recibe el código.
+Esta entrega no modifica tus cuentas: hay que actualizar Google y GitHub con estos archivos.
